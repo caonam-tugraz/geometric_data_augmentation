@@ -372,52 +372,7 @@ class ImageToSketch_Tenengrad:
             return im_pil
         else:
             return image
-
-        
-# ****************************************************************************************
-
-class Tenengrad_filter_color:
-    """Performs ImageToSketch
-    """
-
-    def __init__(self, p=0.7, ksize=3):
-        self.p = p
-        self.ksize = ksize
-
-    def __call__(self, image: Image):
-        if random.random() <= self.p:
-            # use numpy to convert the pil_image into a numpy array
-            numpy_image = np.array(image)
-            gray = cv2.cvtColor(numpy_image, cv2.COLOR_RGB2GRAY)
-
-            # Compute the gradients using Scharr kernel in x and y directions
-            gx = cv2.Scharr(gray, cv2.CV_32F, 1, 0)
-            gy = cv2.Scharr(gray, cv2.CV_32F, 0, 1)
-            
-            # Compute the squared gradients and sum them up using a kernel
-            k = np.ones((self.ksize, self.ksize), dtype=np.float32)
-            gxx = cv2.filter2D(gx**2, -1, k)
-            gyy = cv2.filter2D(gy**2, -1, k)
-            
-            # Compute the Tenengrad filter response as the square root of the sum of squared gradients
-            response = np.sqrt(gxx + gyy)
-            
-            # Normalize the response to [0, 255] range
-            response = cv2.normalize(response, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-            
-            # Optionally, convert the gradient image back to color
-            gradient_color = cv2.cvtColor(response, cv2.COLOR_GRAY2RGB)
-            
-            # temp = np.dstack([response, response, response])
-            
-            im_pil = Image.fromarray(gradient_color)
-            # im_pil = ImageOps.invert(im_pil)
-
-            return im_pil
-        else:
-            return image
-
-    
+   
 # ****************************************************************************************
 
 class Normalize_histogram:
@@ -457,61 +412,7 @@ class Normalize_histogram:
         else:
             return image
 
-
-# ****************************************************************************************
-
-class SharpRegionDetector:
-    def __init__(self, p=0.5, n = 15, laplacian_filter=np.array([[0, 1, 0], [1, -4, 1], [0, 1, 0]]), threshold=15):
-        self.n = n
-        self.laplacian_filter = laplacian_filter
-        self.threshold = threshold
-        self.p = p
-
-    def __call__(self, image):
-        if random.random() <= self.p:
-            # use numpy to convert the pil_image into a numpy array
-            numpy_image = np.array(image)
-        
-            # convert to a openCV2 image, notice the COLOR_RGB2BGR which means that
-            # the color is converted from RGB to BGR format
-            # opencv_image = cv2.cvtColor(numpy_image, cv2.COLOR_RGB2BGR)
-        
-            gray = cv2.cvtColor(numpy_image, cv2.COLOR_RGB2GRAY)
-                
-            # Calculate the width and height of each grid cell
-            h, w = numpy_image.shape[:2]
-            cell_size = min(h//self.n, w//self.n)
-            
-            # Calculate the Laplacian variance for each grid cell
-            lap_var = np.zeros((self.n, self.n))
-            for i in range(self.n):
-                for j in range(self.n):
-                    x = j * cell_size
-                    y = i * cell_size
-                    cell = gray[y:y+cell_size, x:x+cell_size]
-                    lap = cv2.filter2D(cell, cv2.CV_64F, self.laplacian_filter)
-                    lap_var[i,j] = np.var(lap)
-            
-            # Normalize the variance values to [0, 255]
-            lap_var_norm = cv2.normalize(lap_var, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-            
-            # Create a mask of the sharp regions
-            mask = cv2.threshold(lap_var_norm, self.threshold, 255, cv2.THRESH_BINARY)[1].astype(np.uint8)
-            mask = cv2.resize(mask, (numpy_image.shape[1], numpy_image.shape[0]))
-            
-            # Highlight the sharp regions in the image
-            result = cv2.bitwise_and(numpy_image, numpy_image, mask=mask)
-
-            # temp = np.dstack([result, result, result])
-            im_pil = Image.fromarray(result)
-
-            return im_pil
-        else:
-            return image
-        
-
 # ****************************************************************************************     
-   
 class ImageToSketch1:
     """Performs ImageToSketch
     """
@@ -550,162 +451,7 @@ class ImageToSketch1:
         else:
             return image
 
-
 # ****************************************************************************************
-
-# class FreiChen_average:
-#     def __init__(self, p=0.5):
-#         self.p = p
-
-#     def __call__(self, image):
-#         if random.random() <= self.p:
-#             # if len(image.size) == 3:
-#             #     gray = skimage.img_as_float(image)
-#             # else:
-#             # gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-#             gray = image.convert('L')
-#             gray = np.array(gray).astype(float)
-
-#             # gray = skimage.img_as_float(gray)
-
-#             result = np.abs(convolve(gray,
-#                                      np.array([[1, 1, 1],
-#                                               [1, 1, 1],
-#                                               [1, 1, 1]]).astype(float) / 3.0))
-
-#             # formatted = (result * 255 / np.max(result)).astype('uint8')
-#             normalizedImg = np.zeros(image.size)
-#             cv2.normalize(result,  normalizedImg, 0, 255, cv2.NORM_MINMAX)
-
-#             normalizedImg = Image.fromarray(normalizedImg)
-
-#             return normalizedImg
-#         else:
-#             return image
-
-# ****************************************************************************************
-
-
-class SobelDetection:
-    def __init__(self, p=0.5):
-        self.p = p
-
-    def __call__(self, image: np.array):
-        if random.random() <= self.p:
-            # gray = image.convert('L')
-
-            open_cv_image = np.array(image)
-            src = open_cv_image[:, :, ::-1]
-            gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
-
-            scale = 1
-            delta = 0
-            # ddepth = cv2.CV_16S
-            ddepth = cv2.CV_64F
-
-            grad_x = cv2.Sobel(gray, ddepth, 1, 0, ksize=3, scale=scale,
-                               delta=delta, borderType=cv2.BORDER_DEFAULT)
-            # Gradient-Y
-            # grad_y = cv.Scharr(gray,ddepth,0,1)
-            grad_y = cv2.Sobel(gray, ddepth, 0, 1, ksize=3, scale=scale,
-                               delta=delta, borderType=cv2.BORDER_DEFAULT)
-
-            abs_grad_x = cv2.convertScaleAbs(grad_x)
-            abs_grad_y = cv2.convertScaleAbs(grad_y)
-
-            abs_grad = cv2.addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0)
-
-            abs_grad = cv2.cvtColor(abs_grad, cv2.COLOR_GRAY2BGR)
-            im_pil = Image.fromarray(abs_grad)
-
-            return im_pil
-        else:
-            return image
-
-# ****************************************************************************************
-
-class CannyDetection:
-    def __init__(self, p=0.5):
-        self.p = p
-
-    def __call__(self, image: np.array):
-        if random.random() <= self.p:
-            gray = image.convert('L')
-
-            ocv = np.array(gray)
-            threshold1 = 100
-            threshold2 = 200
-            edgec = cv2.Canny(ocv, threshold1, threshold2)
-            edgec = cv2.cvtColor(edgec, cv2.COLOR_GRAY2BGR)
-            edgec = Image.fromarray(edgec)
-            # edgec = ImageOps.invert(edgec)
-
-            # open_cv_image = np.array(image)
-            # src = open_cv_image[:, :, ::-1]
-
-            # src = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
-            # equalized = cv2.equalizeHist(src)
-            # equalized = ImageOps.equalize(image)
-            return edgec
-        else:
-            return image
-
-# ****************************************************************************************
-
-
-class SobelCannyDetection:
-    def __init__(self, p=0.7):
-        self.p = p
-
-    def __call__(self, image: np.array):
-        if random.random() <= self.p:
-            open_cv_image = np.array(image)
-            src = open_cv_image[:, :, ::-1]
-            gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
-
-            scale = 1
-            delta = 0
-            # ddepth = cv2.CV_16S
-            ddepth = cv2.CV_64F
-
-            grad_x = cv2.Sobel(gray, ddepth, 1, 0, ksize=3, scale=scale,
-                               delta=delta, borderType=cv2.BORDER_DEFAULT)
-            # Gradient-Y
-            # grad_y = cv.Scharr(gray,ddepth,0,1)
-            grad_y = cv2.Sobel(gray, ddepth, 0, 1, ksize=3, scale=scale,
-                               delta=delta, borderType=cv2.BORDER_DEFAULT)
-
-            abs_grad_x = cv2.convertScaleAbs(grad_x)
-            abs_grad_y = cv2.convertScaleAbs(grad_y)
-
-            abs_grad = cv2.addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0)
-
-            # abs_grad = cv2.cvtColor(abs_grad, cv2.COLOR_GRAY2BGR)
-            # im_pil = Image.fromarray(abs_grad)
-
-            # gray = image.convert('L')
-
-            # ocv = np.array(gray)
-            threshold1 = 100
-            threshold2 = 200
-            edgec = cv2.Canny(abs_grad, threshold1, threshold2)
-            edgec = cv2.cvtColor(edgec, cv2.COLOR_GRAY2BGR)
-            edgec = Image.fromarray(edgec)
-            # edgec = ImageOps.invert(edgec)
-
-            # open_cv_image = np.array(image)
-            # src = open_cv_image[:, :, ::-1]
-
-            # src = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
-            # equalized = cv2.equalizeHist(src)
-            # equalized = ImageOps.equalize(image)
-            return edgec
-        else:
-            return image
-
-# ****************************************************************************************
-
-
 class ImgInvert:
     def __init__(self, p=1.0):
         self.p = p
@@ -725,7 +471,6 @@ class ImgInvert:
             return image
 
 # ****************************************************************************************
-
 
 class ImgCustomRotate:
     def __init__(self, p=0.8):
@@ -753,14 +498,13 @@ class ImgCustomRotate:
 
 # ****************************************************************************************
 
-
 class ImgCustomRotate1:
     def __init__(self, p=0.8):
         self.p = p
         self.degrees = [0, 90,
                         180, 270]
-        
 
+    
     def __call__(self, image: np.array):
         if random.random() <= self.p:
             # open_cv_image = np.array(image)
